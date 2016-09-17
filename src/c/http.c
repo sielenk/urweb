@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <errno.h>
+#include <error.h>
 
 #include <pthread.h>
 
@@ -404,26 +406,22 @@ int main(int argc, char *argv[]) {
   sockfd = socket(PF_INET, SOCK_STREAM, 0); // do some error checking!
 
   if (sockfd < 0) {
-    fprintf(stderr, "Listener socket creation failed\n");
-    return 1;
+    error(1, errno, "Listener socket creation failed");
   }
 
   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) < 0) {
-    fprintf(stderr, "Listener socket option setting failed\n");
-    return 1;
+    error(1, errno, "Listener socket option setting failed");
   }
 
   my_addr.sin_family = AF_INET;         // host byte order
   my_addr.sin_port = htons(uw_port);    // short, network byte order
 
   if (bind(sockfd, (struct sockaddr *)&my_addr, sizeof my_addr) < 0) {
-    fprintf(stderr, "Listener socket bind failed\n");
-    return 1;
+    error(1, errno, "Listener socket bind failed");
   }
 
   if (listen(sockfd, uw_backlog) < 0) {
-    fprintf(stderr, "Socket listen failed\n");
-    return 1;
+    error(1, errno, "Socket listen failed");
   }
 
   sin_size = sizeof their_addr;
@@ -438,8 +436,7 @@ int main(int argc, char *argv[]) {
     pd->loggers = &ls;
 
     if (pthread_create_big(&thread, NULL, client_pruner, pd)) {
-      fprintf(stderr, "Error creating pruner thread\n");
-      return 1;
+      error(1, errno, "Error creating pruner thread");
     }
   }
 
@@ -447,8 +444,7 @@ int main(int argc, char *argv[]) {
     pthread_t thread;    
     names[i] = i;
     if (pthread_create_big(&thread, NULL, worker, &names[i])) {
-      fprintf(stderr, "Error creating worker thread #%d\n", i);
-      return 1;
+      error(1, errno, "Error creating worker thread #%d", i);
     }
   }
 
