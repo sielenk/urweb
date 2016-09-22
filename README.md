@@ -1,4 +1,4 @@
-[![Build Status](https://api.travis-ci.org/urweb/urweb.png?branch=master)](https://travis-ci.org/urweb/urweb)
+[![Build Status](https://api.travis-ci.org/sielenk/urweb.png?branch=master)](https://travis-ci.org/sielenk/urweb)
 
 # The Ur/Web Programming Language
 
