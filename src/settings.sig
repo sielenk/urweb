@@ -96,6 +96,7 @@ signature SETTINGS = sig
     val isServerOnly : ffi -> bool
 
     (* Which FFI functions may be run in JavaScript?  (JavaScript function names included) *)
+    val setJsModule : string option -> unit
     val setJsFuncs : (ffi * string) list -> unit
     val addJsFunc : ffi * string -> unit
     val jsFunc : ffi -> string option
@@ -297,7 +298,7 @@ signature SETTINGS = sig
     val setFilePath : string -> unit
     (* Sets the directory where we look for files being added below. *)
 
-    val addFile : {Uri : string, LoadFromFilename : string} -> unit
+    val addFile : {Uri : string, LoadFromFilename : string, MimeType : string option} -> unit
     val listFiles : unit -> {Uri : string, ContentType : string option, LastModified : Time.time, Bytes : Word8Vector.vector} list
 
     val addJsFile : string (* filename *) -> unit
@@ -305,4 +306,7 @@ signature SETTINGS = sig
 
     val setOutputJsFile : string option (* filename *) -> unit
     val getOutputJsFile : unit -> string option
+
+    val setMimeFilePath : string -> unit
+    (* Set unusual location for /etc/mime.types. *)
 end

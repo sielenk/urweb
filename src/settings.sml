@@ -346,7 +346,7 @@ val jsFuncsBase = basisM [("alert", "alert"),
                           ("asin", "asin"),
                           ("acos", "acos"),
                           ("atan", "atan"),
-                          ("atan2", "atan2"),                           
+                          ("atan2", "atan2"),
                           ("abs", "abs"),
 
                           ("now", "now"),
@@ -395,9 +395,15 @@ val jsFuncsBase = basisM [("alert", "alert"),
                           ("htmlifySpecialChar", "htmlifySpecialChar"),
                           ("chr", "chr")]
 val jsFuncs = ref jsFuncsBase
-fun setJsFuncs ls = jsFuncs := foldl (fn ((k, v), m) => M.insert (m, k, v)) jsFuncsBase ls
+val jsModule = ref (NONE : string option)
+fun setJsModule m = jsModule := m
+fun jsFuncName f =
+    case !jsModule of
+        SOME m => m ^ "." ^ f
+      | NONE => f
+fun setJsFuncs ls = jsFuncs := foldl (fn ((k, v), m) => M.insert (m, k, jsFuncName v)) jsFuncsBase ls
 fun jsFunc x = M.find (!jsFuncs, x)
-fun addJsFunc (k, v) = jsFuncs := M.insert (!jsFuncs, k, v)
+fun addJsFunc (k, v) = jsFuncs := M.insert (!jsFuncs, k, jsFuncName v)
 fun allJsFuncs () = M.listItemsi (!jsFuncs)
 
 datatype pattern_kind = Exact | Prefix
@@ -837,14 +843,17 @@ structure SM = BinaryMapFn(struct
 
 val noMimeFile = ref false
 
+val mimeFilePath = ref "/etc/mime.types"
+fun setMimeFilePath file = mimeFilePath := file
+
 fun noMime () =
-    (TextIO.output (TextIO.stdErr, "WARNING: Error opening /etc/mime.types.  Static files will be served with no suggested MIME types.\n");
+    (TextIO.output (TextIO.stdErr, "WARNING: Error opening " ^ !mimeFilePath ^ ".  Static files will be served with no suggested MIME types.\n");
      noMimeFile := true;
      SM.empty)
 
 fun readMimeTypes () =
     let
-        val inf = FileIO.txtOpenIn "/etc/mime.types"
+        val inf = FileIO.txtOpenIn (!mimeFilePath)
 
         fun loop m =
             case TextIO.inputLine inf of
@@ -902,7 +911,7 @@ val filePath = ref "."
 
 fun setFilePath path = filePath := path
 
-fun addFile {Uri, LoadFromFilename} =
+fun addFile {Uri, LoadFromFilename, MimeType} =
     let
         val path = OS.Path.concat (!filePath, LoadFromFilename)
     in
@@ -920,7 +929,9 @@ fun addFile {Uri, LoadFromFilename} =
                                     Uri,
                                     (path,
                                      {Uri = Uri,
-                                      ContentType = mimeTypeOf path,
+                                      ContentType = case MimeType of
+                                                        NONE => mimeTypeOf path
+                                                      | _ => MimeType,
                                       LastModified = OS.FileSys.modTime path,
                                       Bytes = BinIO.inputAll inf}));
                 BinIO.closeIn inf

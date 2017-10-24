@@ -16,7 +16,7 @@
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
  * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
  * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
  * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
@@ -111,6 +111,7 @@ fun make' {prefix, dirname, guided} =
             benignEffectful = [],
             clientOnly = [],
             serverOnly = [],
+            jsModule = NONE,
             jsFuncs = [],
             rewrites = #rewrites combined @ #rewrites urp,
             filterUrl = #filterUrl combined @ #filterUrl urp,
@@ -124,7 +125,8 @@ fun make' {prefix, dirname, guided} =
             sigFile = mergeWith #2 (#sigFile combined, #sigFile urp),
             safeGets = #safeGets combined @ #safeGets urp,
             onError = NONE,
-            minHeap = 0
+            minHeap = 0,
+            mimeTypes = mergeWith #2 (#mimeTypes combined, #mimeTypes urp)
         }
 
         val parse = Compiler.run (Compiler.transform Compiler.parseUrp "Demo parseUrp")
@@ -280,7 +282,7 @@ fun make' {prefix, dirname, guided} =
                             val (urpData, out) = startUrp urp
                         in
                             finished ();
-                            
+
                             SOME (readUrp (urpData,
                                            out))
                         end
@@ -399,7 +401,7 @@ fun make' {prefix, dirname, guided} =
                              case #kind rule of
                                  Settings.Exact => ()
                                | Settings.Prefix => TextIO.output (outf, "*");
-                             TextIO.output (outf, "\n")))                  
+                             TextIO.output (outf, "\n")))
             in
                 Option.app (fn db => (TextIO.output (outf, "database ");
                                       TextIO.output (outf, db);

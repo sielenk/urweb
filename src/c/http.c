@@ -46,6 +46,7 @@ static char *get_header(void *data, const char *h) {
 }
 
 static char *get_env(void *data, const char *name) {
+  (void)data;
   return getenv(name);
 }
 
@@ -58,6 +59,8 @@ static void on_failure(uw_context ctx) {
 }
 
 static void log_error(void *data, const char *fmt, ...) {
+  (void)data;
+
   va_list ap;
   va_start(ap, fmt);
 
@@ -65,6 +68,8 @@ static void log_error(void *data, const char *fmt, ...) {
 }
 
 static void log_debug(void *data, const char *fmt, ...) {
+  (void)data;
+
   if (!quiet) {
     va_list ap;
     va_start(ap, fmt);
@@ -332,6 +337,7 @@ static void help(char *cmd) {
 }
 
 static void sigint(int signum) {
+  (void)signum;
   printf("Exiting....\n");
   exit(0);
 }
@@ -359,7 +365,7 @@ int main(int argc, char *argv[]) {
   my_addr.sa.sa_family = AF_INET;
   my_addr.ipv4.sin_addr.s_addr = INADDR_ANY; // auto-fill with my IP
 
-  while ((opt = getopt(argc, argv, "hp:a:A:t:kqT:")) != -1) {
+  while ((opt = getopt(argc, argv, "hp:a:A:t:kqT:m:")) != -1) {
     switch (opt) {
     case '?':
       fprintf(stderr, "Unknown command-line option\n");
@@ -542,12 +548,17 @@ void *uw_init_client_data() {
 }
 
 void uw_free_client_data(void *data) {
+  (void)data;
 }
 
 void uw_copy_client_data(void *dst, void *src) {
+  (void)dst;
+  (void)src;
 }
 
 void uw_do_expunge(uw_context ctx, uw_Basis_client cli, void *data) {
+  (void)data;
+
   uw_ensure_transaction(ctx);
   uw_get_app(ctx)->expunger(ctx, cli);
 
@@ -556,6 +567,8 @@ void uw_do_expunge(uw_context ctx, uw_Basis_client cli, void *data) {
 }
 
 void uw_post_expunge(uw_context ctx, void *data) {
+  (void)ctx;
+  (void)data;
 }
 
 int uw_supports_direct_status = 1;
