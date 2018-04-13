@@ -32,7 +32,7 @@ wget http://localhost:8080/Hello/main -O -
 
 # Simple Installation
 
-The normal UNIX-style build and installation procedure works.
+The normal UNIX-style build and installation procedure works (where the `make` program needs to be GNU Make, and where `./autogen.sh` must be run first only if starting from a Git checkout rather than a release tarball).
 
 ```sh
 ./configure
