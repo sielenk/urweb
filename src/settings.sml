@@ -32,7 +32,8 @@ val configLib = ref Config.lib
 val configSrcLib = ref Config.srclib
 val configInclude = ref Config.includ
 val configSitelisp = ref Config.sitelisp
-
+val configIcuIncludes = ref Config.icuIncludes
+val configIcuLibs = ref Config.icuLibs
 val configCCompiler = ref Config.ccompiler
 
 fun getCCompiler () = !configCCompiler
@@ -116,6 +117,7 @@ fun basis x = S.addList (S.empty, map (fn x : string => ("Basis", x)) x)
 val clientToServerBase = basis ["int",
                                 "float",
                                 "string",
+                                "char",
                                 "time",
                                 "file",
                                 "unit",
@@ -156,6 +158,7 @@ fun isEffectful ("Sqlcache", _) = true
 fun addEffectful x = effectful := S.add (!effectful, x)
 
 val benignBase = basis ["get_cookie",
+                        "getenv",
                         "new_client_source",
                         "get_client_source",
                         "set_client_source",
@@ -275,6 +278,7 @@ val jsFuncsBase = basisM [("alert", "alert"),
                           ("urlifyFloat", "ts"),
                           ("urlifyTime", "ts"),
                           ("urlifyString", "uf"),
+                          ("urlifyChar", "uf"),
                           ("urlifyBool", "ub"),
                           ("recv", "rv"),
                           ("strcat", "cat"),
@@ -323,6 +327,7 @@ val jsFuncsBase = basisM [("alert", "alert"),
                           ("checkUrl", "checkUrl"),
                           ("bless", "bless"),
                           ("blessData", "blessData"),
+                          ("currentUrl", "currentUrl"),
 
                           ("eq_time", "eq"),
                           ("lt_time", "lt"),
@@ -646,7 +651,9 @@ type dbms = {
      onlyUnion : bool,
      nestedRelops : bool,
      windowFunctions: bool,
-     supportsIsDistinctFrom : bool
+     requiresTimestampDefaults : bool,
+     supportsIsDistinctFrom : bool,
+     supportsSHA512 : {InitializeDb : string, GenerateHash : string -> string} option
 }
 
 val dbmses = ref ([] : dbms list)
@@ -679,7 +686,9 @@ val curDb = ref ({name = "",
                   onlyUnion = false,
                   nestedRelops = false,
                   windowFunctions = false,
-                  supportsIsDistinctFrom = false} : dbms)
+                  requiresTimestampDefaults = false,
+                  supportsIsDistinctFrom = false,
+                  supportsSHA512 = NONE} : dbms)
 
 fun addDbms v = dbmses := v :: !dbmses
 fun setDbms s =
@@ -699,6 +708,10 @@ fun getExe () = !exe
 val sql = ref (NONE : string option)
 fun setSql so = sql := so
 fun getSql () = !sql
+
+val endpoints = ref (NONE : string option)
+fun setEndpoints so = endpoints := so
+fun getEndpoints () = !endpoints
 
 val coreInline = ref 5
 fun setCoreInline n = coreInline := n
@@ -724,14 +737,26 @@ val sigFile = ref (NONE : string option)
 fun setSigFile v = sigFile := v
 fun getSigFile () = !sigFile
 
+val fileCache = ref (NONE : string option)
+fun setFileCache v =
+    (if Option.isSome v andalso (case #supportsSHA512 (currentDbms ()) of NONE => true
+                                                                        | SOME _ => false) then
+         ErrorMsg.error "The selected database engine is incompatible with file caching."
+     else
+        ();
+     fileCache := v)
+fun getFileCache () = !fileCache
+
 structure SS = BinarySetFn(struct
                            type ord_key = string
                            val compare = String.compare
                            end)
 
+val safeGetDefault = ref false
 val safeGet = ref SS.empty
+fun setSafeGetDefault b = safeGetDefault := b
 fun setSafeGets ls = safeGet := SS.addList (SS.empty, ls)
-fun isSafeGet x = SS.member (!safeGet, x)
+fun isSafeGet x = !safeGetDefault orelse SS.member (!safeGet, x)
 
 val onError = ref (NONE : (string * string list * string) option)
 fun setOnError x = onError := x
@@ -992,6 +1017,7 @@ fun reset () =
      dbstring := NONE;
      exe := NONE;
      sql := NONE;
+     endpoints := NONE;
      coreInline := 5;
      monoInline := 5;
      staticLinking := false;

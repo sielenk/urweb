@@ -260,6 +260,21 @@
 
  end
 
+ (* Wildcards are disallowed inside signatures.
+  * We use a flag to indicate when we are in a signature,
+  * with a helper function for entering this mode and properly backing out afterward. *)
+ val inSignature = ref false
+ fun enterSignature' b f =
+     let
+         val inS = !inSignature
+     in
+         inSignature := b;
+         (f () handle ex => (inSignature := inS; raise ex))
+         before inSignature := inS
+     end
+ fun enterSignature f = enterSignature' true f
+ fun exitSignature f = enterSignature' false f
+ 
  fun elabKind env (k, loc) =
      case k of
          L.KType => (L'.KType, loc)
@@ -268,7 +283,7 @@
        | L.KRecord k => (L'.KRecord (elabKind env k), loc)
        | L.KUnit => (L'.KUnit, loc)
        | L.KTuple ks => (L'.KTuple (map (elabKind env) ks), loc)
-       | L.KWild => kunif env loc
+       | L.KWild => if !inSignature then (kindError env (KDisallowedWildcard loc); kerror) else kunif env loc
 
        | L.KVar s => (case E.lookupK env s of
                           NONE =>
@@ -531,11 +546,15 @@
          end
 
        | L.CWild k =>
-         let
-             val k' = elabKind env k
-         in
-             (cunif env (loc, k'), k', [])
-         end
+         if !inSignature then
+             (conError env (CDisallowedWildcard loc);
+              (cerror, kerror, []))
+         else
+             let
+                 val k' = elabKind env k
+             in
+                 (cunif env (loc, k'), k', [])
+             end
 
  fun kunifsRemain k =
      case k of
@@ -2560,7 +2579,10 @@ fun elabSgn_item ((sgi, loc), (env, denv, gs)) =
          let
              val k' = case ko of
                           NONE => kunif env loc
-                        | SOME k => elabKind env k
+                        | SOME k => exitSignature (fn () => elabKind env k)
+                          (* Waive wildcard restriction within translation
+                           * of kind annotation.  The kind of [c] will allow
+                           * us to resolve it fully. *)
 
              val (c', ck, gs') = elabCon (env, denv) c
              val (env', n) = E.pushCNamed env x k' (SOME c')
@@ -2712,7 +2734,7 @@ fun elabSgn_item ((sgi, loc), (env, denv, gs)) =
              val ct = (L'.CApp (ct, c'), loc)
              val ct = (L'.CApp (ct, (L'.CConcat (pkey, uniques), loc)), loc)
 
-             val (pe', pet, gs'') = elabExp (env', denv) pe
+             val (pe', pet, gs'') = exitSignature (fn () => elabExp (env', denv) pe)
              val gs'' = List.mapPartial (fn Disjoint x => SOME x
                                           | _ => NONE) gs''
 
@@ -2720,7 +2742,7 @@ fun elabSgn_item ((sgi, loc), (env, denv, gs)) =
              val pst = (L'.CApp (pst, c'), loc)
              val pst = (L'.CApp (pst, pkey), loc)
 
-             val (ce', cet, gs''') = elabExp (env', denv) ce
+             val (ce', cet, gs''') = exitSignature (fn () => elabExp (env', denv) ce)
              val gs''' = List.mapPartial (fn Disjoint x => SOME x
                                            | _ => NONE) gs'''
 
@@ -3284,12 +3306,27 @@ and subSgn' counterparts env strLoc sgn1 (sgn2 as (_, loc2)) =
                                                 SOME env
                                             end
 
-                                        val env = E.pushCNamedAs env x1 n1 k' NONE
-                                        val env = if n1 = n2 then
-                                                      env
-                                                  else
-                                                      (cparts (n2, n1);
-                                                       E.pushCNamedAs env x1 n2 k' (SOME (L'.CNamed n1, loc)))
+                                        fun dt_pusher (dts1, dts2, env) =
+                                            case (dts1, dts2) of
+                                                ((x1, n1, xs1, _) :: dts1', (x2, n2, xs2, _) :: dts2') =>
+                                                let
+                                                    val k = (L'.KType, loc)
+                                                    val k' = foldl (fn (_, k') => (L'.KArrow (k, k'), loc)) k xs1
+                                                
+                                                    val env = E.pushCNamedAs env x1 n1 k' NONE
+                                                    val env = if n1 = n2 then
+                                                                  env
+                                                              else
+                                                                  (cparts (n2, n1);
+                                                                   E.pushCNamedAs env x1 n2 k' (SOME (L'.CNamed n1, loc)))
+                                                in
+                                                    dt_pusher (dts1', dts2', env)
+                                                end
+                                             |  _ => env
+                                        val env = case #1 sgi1All of
+                                                      L'.SgiDatatype dts1 => dt_pusher (dts1, dts2, env)
+                                                    | _ => env
+                                                         
                                         val env = foldl (fn (x, env) => E.pushCRel env x k) env xs1
                                         fun xncBad ((x1, _, t1), (x2, _, t2)) =
                                             String.compare (x1, x2) <> EQUAL
@@ -4046,7 +4083,8 @@ and elabDecl (dAll as (d, loc), (env, denv, gs)) =
                           | L.PAnnot (p', _) => singleVar p'
                           | _ => NONE
                 in
-                    unifyCons env loc et pt;
+                    (unifyCons env loc et pt
+                     handle CUnify (c1, c2, env', err) => expError env (Unify (e', c1, c2, env', err)));
 
                     (case exhaustive (env, et, [p'], loc) of
                          NONE => ()
@@ -4130,7 +4168,7 @@ and elabDecl (dAll as (d, loc), (env, denv, gs)) =
 
               | L.DSgn (x, sgn) =>
                 let
-                    val (sgn', gs') = elabSgn (env, denv) sgn
+                    val (sgn', gs') = enterSignature (fn () => elabSgn (env, denv) sgn)
                     val (env', n) = E.pushSgnNamed env x sgn'
                 in
                     ([(L'.DSgn (x, n, sgn'), loc)], (env', denv, enD gs' @ gs))
@@ -4155,7 +4193,7 @@ and elabDecl (dAll as (d, loc), (env, denv, gs)) =
                                   else
                                       ()
 
-                         val formal = Option.map (elabSgn (env, denv)) sgno
+                         val formal = enterSignature (fn () => Option.map (elabSgn (env, denv)) sgno)
 
                          val (str', sgn', gs') =
                              case formal of
@@ -4205,7 +4243,7 @@ and elabDecl (dAll as (d, loc), (env, denv, gs)) =
                      end
                    | NONE =>
                      let
-                         val (sgn', gs') = elabSgn (env, denv) sgn
+                         val (sgn', gs') = enterSignature (fn () => elabSgn (env, denv) sgn)
                                            
                          val (env', n) = E.pushStrNamed env x sgn'
 
@@ -4723,6 +4761,7 @@ fun elabFile basis basis_tm topStr topSgn top_tm env file =
         val () = mayDelay := true
         val () = delayedUnifs := []
         val () = delayedExhaustives := []
+        val () = inSignature := false
 
         val d = (L.DFfiStr ("Basis", (L.SgnConst basis, ErrorMsg.dummySpan), SOME basis_tm), ErrorMsg.dummySpan)
         val (basis_n, env', sgn) =

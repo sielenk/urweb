@@ -1153,7 +1153,10 @@ val () = addDbms {name = "postgres",
                   onlyUnion = false,
                   nestedRelops = true,
                   windowFunctions = true,
-                  supportsIsDistinctFrom = true}
+                  requiresTimestampDefaults = false,
+                  supportsIsDistinctFrom = true,
+                  supportsSHA512 = SOME {InitializeDb = "CREATE EXTENSION pgcrypto;",
+                                         GenerateHash = fn name => "DIGEST(" ^ name ^ ", 'sha512')"}}
 
 val () = setDbms "postgres"
 
