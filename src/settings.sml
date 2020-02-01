@@ -325,6 +325,7 @@ val jsFuncsBase = basisM [("alert", "alert"),
                           ("ord", "ord"),
 
                           ("checkUrl", "checkUrl"),
+                          ("anchorUrl", "anchorUrl"),
                           ("bless", "bless"),
                           ("blessData", "blessData"),
                           ("currentUrl", "currentUrl"),
@@ -653,7 +654,8 @@ type dbms = {
      windowFunctions: bool,
      requiresTimestampDefaults : bool,
      supportsIsDistinctFrom : bool,
-     supportsSHA512 : {InitializeDb : string, GenerateHash : string -> string} option
+     supportsSHA512 : {InitializeDb : string, GenerateHash : string -> string} option,
+     supportsSimilar : {InitializeDb : string} option
 }
 
 val dbmses = ref ([] : dbms list)
@@ -688,7 +690,8 @@ val curDb = ref ({name = "",
                   windowFunctions = false,
                   requiresTimestampDefaults = false,
                   supportsIsDistinctFrom = false,
-                  supportsSHA512 = NONE} : dbms)
+                  supportsSHA512 = NONE,
+                  supportsSimilar = NONE} : dbms)
 
 fun addDbms v = dbmses := v :: !dbmses
 fun setDbms s =
