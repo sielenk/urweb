@@ -958,9 +958,10 @@ $$\infer{\Gamma \vdash \mt{let} \; \overline{ed} \; \mt{in} \; e \; \mt{end} : \
   \Gamma \vdash \overline{ed} \leadsto \Gamma'
   & \Gamma' \vdash e : \tau
 }
-\quad \infer{\Gamma \vdash \mt{case} \; e \; \mt{of} \; \overline{p \Rightarrow e} : \tau}{
-  \forall i: \Gamma \vdash p_i \leadsto \Gamma_i, \tau'
-  & \Gamma_i \vdash e_i : \tau
+\quad \infer{\Gamma \vdash \mt{case} \; e \; \mt{of} \; \overline{p \Rightarrow e'} : \tau'}{
+  \Gamma \vdash e : \tau
+  & \forall i: \Gamma \vdash p_i \leadsto \Gamma_i; \tau
+  & \Gamma_i \vdash e_i' : \tau'
 }$$
 
 $$\infer{\Gamma \vdash \lambda [c_1 \sim c_2] \Rightarrow e : [c_1 \sim c_2] \Rightarrow \tau}{
@@ -2150,7 +2151,7 @@ $$\begin{array}{l}
   \mt{val} \; \mt{sleep} : \mt{int} \to \mt{transaction} \; \mt{unit}
 \end{array}$$
 
-A few functions are available to registers callbacks for particular error events.  Respectively, they are triggered on calls to $\mt{error}$, uncaught JavaScript exceptions, failure of remote procedure calls, the severance of the connection serving asynchronous messages, or the occurrence of some other error with that connection.  If no handlers are registered for a kind of error, then a JavaScript \cd{alert()} is used to announce its occurrence.  When one of these functions is called multiple times within a single page, all registered handlers are run when appropriate events occur, with handlers run in the reverse of their registration order.
+A few functions are available to register callbacks for particular error events.  Respectively, they are triggered on calls to $\mt{error}$, uncaught JavaScript exceptions, failure of remote procedure calls, the severance of the connection serving asynchronous messages, or the occurrence of some other error with that connection.  If no handlers are registered for a kind of error, then a JavaScript \cd{alert()} is used to announce its occurrence.  When one of these functions is called multiple times within a single page, all registered handlers are run when appropriate events occur, with handlers run in the reverse of their registration order.
 $$\begin{array}{l}
   \mt{val} \; \mt{onError} : (\mt{xbody} \to \mt{transaction} \; \mt{unit}) \to \mt{transaction} \; \mt{unit} \\
   \mt{val} \; \mt{onFail} : (\mt{string} \to \mt{transaction} \; \mt{unit}) \to \mt{transaction} \; \mt{unit} \\
@@ -2309,12 +2310,12 @@ A signature item $\mt{table} \; \mt{x} : \mt{c}$ is actually elaborated into two
 
 \subsubsection{Queries}
 
-Queries $Q$ are added to the rules for expressions $e$.
+Parenthesized queries $(Q)$ are added to the rules for expressions $e$.
 
 $$\begin{array}{rrcll}
-  \textrm{Queries} & Q &::=& (q \; [\mt{ORDER} \; \mt{BY} \; O] \; [\mt{LIMIT} \; N] \; [\mt{OFFSET} \; N]) \\
+  \textrm{Queries} & Q &::=& q \; [\mt{ORDER} \; \mt{BY} \; O] \; [\mt{LIMIT} \; N] \; [\mt{OFFSET} \; N] \\
   \textrm{Pre-queries} & q &::=& \mt{SELECT} \; [\mt{DISTINCT}] \; P \; \mt{FROM} \; F,^+ \; [\mt{WHERE} \; E] \; [\mt{GROUP} \; \mt{BY} \; p,^+] \; [\mt{HAVING} \; E] \\
-  &&& \mid q \; R \; q \mid \{\{\{e\}\}\} \\
+  &&& \mid q \; R \; [\mt{ALL}] \; q \mid \{\{\{e\}\}\} \\
   \textrm{Relational operators} & R &::=& \mt{UNION} \mid \mt{INTERSECT} \mid \mt{EXCEPT} \\
   \textrm{$\mt{ORDER \; BY}$ items} & O &::=& \mt{RANDOM} [()] \mid \hat{E} \; [o] \mid \hat{E} \; [o], O \mid \{\{\{e\}\}\}
 \end{array}$$
